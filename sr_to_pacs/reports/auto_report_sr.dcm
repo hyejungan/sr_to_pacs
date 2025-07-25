@@ -1,0 +1,18 @@
+import subprocess
+
+def send_to_pacs(dicom_file, pacs_host='127.0.0.1', pacs_port='4242',
+                 aet='MY_AET', aec='ORTHANC'):
+    try:
+        command = [
+            'storescu',
+            '-v',
+            '-aec', aec,
+            '-aet', aet,
+            pacs_host, pacs_port,
+            dicom_file
+        ]
+        print(f"[INFO] Sending {dicom_file} to PACS at {pacs_host}:{pacs_port} ...")
+        subprocess.run(command, check=True)
+        print("[SUCCESS] SR successfully sent to PACS.")
+    except subprocess.CalledProcessError as e:
+        print("[ERROR] Failed to send SR to PACS:", e)
