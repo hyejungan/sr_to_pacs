@@ -1,38 +1,20 @@
 from pydicom.dataset import Dataset, FileDataset
 from pydicom.sequence import Sequence
-from pydicom.uid import generate_uid, ExplicitVRLittleEndian
 from pydicom.filereader import dcmread
-from datetime import datetime
 
-def make_sr_dicom(report_text, ref_dicom_path, save_path, patient_id="123456", patient_name="TEST^PATIENT"):
-    # 1. ref_dicom 로딩 → evidence로 넣음
+def make_sr_dicom(report_text, ref_dicom_path, save_path):
     ref_ds = dcmread(ref_dicom_path)
 
-    # 2. DICOM 메타 정보
     file_meta = Dataset()
-    file_meta.MediaStorageSOPClassUID = "1.2.840.10008.5.1.4.1.1.88.33"  # Comprehensive SR
-    file_meta.MediaStorageSOPInstanceUID = generate_uid()
-    file_meta.TransferSyntaxUID = ExplicitVRLittleEndian
+    file_meta.MediaStorageSOPClassUID = ref_ds.file_meta.MediaStorageSOPClassUID
+    file_meta.MediaStorageSOPInstanceUID = ref_ds.file_meta.MediaStorageSOPInstanceUID
+    file_meta.TransferSyntaxUID = ref_ds.file_meta.TransferSyntaxUID
 
-    # 3. SR DICOM 객체 생성
     ds = FileDataset(save_path, {}, file_meta=file_meta, preamble=b"\0" * 128)
+    column_names = [elem.keyword for elem in ref_ds if elem.keyword]
+    for name in column_names :
+        ds[f'{name}'] = ref_ds[f'{name}']
 
-    dt = datetime.now()
-    ds.SOPClassUID = file_meta.MediaStorageSOPClassUID
-    ds.SOPInstanceUID = file_meta.MediaStorageSOPInstanceUID
-    ds.StudyInstanceUID = ref_ds.StudyInstanceUID if "StudyInstanceUID" in ref_ds else generate_uid()
-    ds.SeriesInstanceUID = generate_uid()
-    ds.Modality = "SR"
-    ds.SeriesNumber = 1
-    ds.InstanceNumber = 1
-    ds.StudyDate = dt.strftime('%Y%m%d')
-    ds.StudyTime = dt.strftime('%H%M%S')
-
-    ds.PatientID = ref_ds.PatientID if "PatientID" in ref_ds else patient_id
-    ds.PatientName = ref_ds.PatientName if "PatientName" in ref_ds else patient_name
-    ds.PatientBirthDate = ref_ds.PatientBirthDate if "PatientBirthDate" in ref_ds else "19700101"
-
-    # 4. Evidence Sequence
     ds.CurrentRequestedProcedureEvidenceSequence = Sequence([
         Dataset()
     ])
@@ -47,7 +29,6 @@ def make_sr_dicom(report_text, ref_dicom_path, save_path, patient_id="123456", p
     ds.CurrentRequestedProcedureEvidenceSequence[0].ReferencedSeriesSequence[0].ReferencedSOPSequence[0].ReferencedSOPClassUID = ref_ds.SOPClassUID
     ds.CurrentRequestedProcedureEvidenceSequence[0].ReferencedSeriesSequence[0].ReferencedSOPSequence[0].ReferencedSOPInstanceUID = ref_ds.SOPInstanceUID
 
-    # 5. SR 본문 구성 (Text Finding)
     root = Dataset()
     root.ValueType = "CONTAINER"
     root.ContinuityOfContent = "SEPARATE"
@@ -56,6 +37,7 @@ def make_sr_dicom(report_text, ref_dicom_path, save_path, patient_id="123456", p
     root.ConceptNameCodeSequence[0].CodeValue = "18748-4"
     root.ConceptNameCodeSequence[0].CodingSchemeDesignator = "LN"
     root.ConceptNameCodeSequence[0].CodeMeaning = "Diagnostic Imaging Report"
+    root.SpecificCharacterSet = 'ISO_IR 192'
 
     finding = Dataset()
     finding.ValueType = "TEXT"
@@ -65,11 +47,9 @@ def make_sr_dicom(report_text, ref_dicom_path, save_path, patient_id="123456", p
     finding.ConceptNameCodeSequence[0].CodingSchemeDesignator = "DCM"
     finding.ConceptNameCodeSequence[0].CodeMeaning = "Finding"
     finding.TextValue = report_text
+    finding.SpecificCharacterSet = 'ISO_IR 192'
 
     root.ContentSequence = Sequence([finding])
     ds.ContentSequence = Sequence([root])
 
-    # 6. 저장
-    ds.save_as(save_path)
-    print(f"✅ SR 저장 완료: {save_path}")
     return ds

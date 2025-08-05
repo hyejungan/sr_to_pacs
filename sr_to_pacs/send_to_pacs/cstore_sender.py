@@ -2,7 +2,7 @@ import requests
 
 def send_to_pacs(dicom_file):
     with open(dicom_file, 'rb') as f:
-        url = "http://localhost:8042/instances"  # 당신의 Orthanc URL
+        url = "http://localhost:8042/instances" 
         headers = {'Content-Type': 'application/dicom'}
         response = requests.post(url, data=f, headers=headers)
 
