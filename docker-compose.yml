@@ -1,0 +1,42 @@
+services:
+  db:
+    image: mariadb:10.6
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_USER: openemr
+      MYSQL_PASSWORD: openemr
+      MYSQL_DATABASE: openemr
+      TZ: Asia/Seoul
+    volumes:
+      - dbdata:/var/lib/mysql
+
+  openemr:
+    image: openemr/openemr:7.0.3
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      - OE_USER=admin
+      - OE_PASS=admin
+      - TZ=Asia/Seoul
+    ports:
+      - "9300:80"     # 브라우저: http://localhost:9300
+    volumes:
+      - oedata:/var/www/localhost/htdocs/openemr/sites
+
+  phpmyadmin:
+    image: phpmyadmin:5
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      PMA_HOST: db
+      PMA_USER: root
+      PMA_PASSWORD: rootpass
+    ports:
+      - "9301:80"     # 브라우저: http://localhost:9301
+
+volumes:
+  dbdata:
+  oedata:
