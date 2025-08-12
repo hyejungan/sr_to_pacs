@@ -1,4 +1,4 @@
 pydicom
-highdicom
-numpy
+requests
+python-dotenv
 requests
